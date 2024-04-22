@@ -1,18 +1,26 @@
-import {useEffect, useState} from "react";
 import styled from "styled-components";
 import Client from "./Client";
+import {observer} from "mobx-react-lite";
+import appStore from "./app_store";
 
 const StyledApp = styled.div`
     width: 100vw;
     height: 100vh;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     padding: 36px;
-    gap: 18px;
+    gap: 36px;
     box-sizing: border-box;
-    
+
+    & .clients {
+        flex: 1;
+        display: flex;
+        flex-direction: row;
+        gap: 18px;
+    }
+
     & .client {
-        flex:1;
+        flex: 1;
         flex-shrink: 0;
         height: 100%;
         position: relative;
@@ -20,19 +28,19 @@ const StyledApp = styled.div`
         flex-direction: column;
         gap: 36px;
         min-height: 0;
-        
+
         & > div:first-child {
             font-size: 18px;
             font-weight: 600;
         }
-        
+
         & > div:last-child {
-           flex:1;
+            flex: 1;
             display: flex;
             flex-direction: column;
         }
-  }
-    
+    }
+
     & .divider {
         width: 1px;
         background-color: #000000;
@@ -41,84 +49,76 @@ const StyledApp = styled.div`
     }
 `;
 
-
-function TimeLeftTimer({endTime}) {
-    const [timeLeft, setTimeLeft] = useState(endTime - new Date());
-
-
-    useEffect(() => {
-        const timer = setInterval(()=>{
-            setTimeLeft(endTime - new Date());
-        }, 100);
-
-        return () => {
-            clearInterval(timer);
-        }
-    }, []);
-
-    // MM:SS:MS
-    if(timeLeft <= 0)
-        return <div>00:00:00</div>
-
-    return <div>
-        {Math.floor(timeLeft/1000/60).toString().padStart(2, "0")}:
-        {Math.floor(timeLeft/1000%60).toString().padStart(2, "0")}:
-        {Math.floor(timeLeft%1000).toString().padStart(3, "0")}
-    </div>
-}
-
-const StyledDebateState = styled.div`
+const StyledInfoSection = styled.div`
     width: 100%;
     display: flex;
     flex-direction: row;
-    align-items:center;
-    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
-    font-size: 16px;
-    font-weight: 600;
+    box-sizing: border-box;
+
+    & .item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        & p {
+            margin: 0;
+            font-size: 12px;
+        }
+
+        & input {
+            height: 28px;
+            margin: 0;
+        }
+    }
+
+    button {
+        font-size: 14px;
+        padding: 8px 16px;
+    }
 `;
-function DebateState({store}) {
-    const stepName = [
-        '토론 시작 전', '긍정 입론', '부정 질의 및 긍정 답변', '부정 입론', '긍정 질의 및 부정 답변', '긍정 반박', '부정 반박', '토론 종료'
-    ]
-    return <StyledDebateState>
-        {
-            store.state === "waiting" && <div>대기중 (모든 참가자가 참여완료하면 자동으로 시작됩니다)</div>
-        }
-        {
-            store.state === "debating" &&
-            <>
-                {stepName[store.step]}
-                <TimeLeftTimer endTime={store.stepEndTime}/>
-            </>
-        }
-    </StyledDebateState>
-}
+
+const InfoSection = observer(() => {
+    return <StyledInfoSection>
+        <div className="item">
+            <p>ws path</p>
+            <input value={appStore.wsPath} onChange={(e) => appStore.setWsPath(e.target.value)}/>
+        </div>
+        <div className="item">
+            <p>debateRoomId</p>
+            <input value={appStore.debateRoomId} type="number"
+                   onChange={(e) => appStore.setDebateRoomId(isNaN(+e.target.value) ? 0 : +e.target.value)}/>
+        </div>
+    </StyledInfoSection>;
+});
 
 function App() {
-
-
-  return (
-      <StyledApp>
-        <div className="client">
-            <div>
-                Client 1
+    return (
+        <StyledApp>
+            <InfoSection/>
+            <div className="clients">
+                <div className="client">
+                    <div>
+                        Client 1
+                    </div>
+                    <div>
+                        <Client/>
+                    </div>
+                </div>
+                <div className="divider"/>
+                <div className="client">
+                    <div>
+                        Client2
+                    </div>
+                    <div>
+                        <Client/>
+                    </div>
+                </div>
             </div>
-            <div>
-                <Client/>
-            </div>
-        </div>
-          <div className="divider"/>
-        <div className="client">
-            <div>
-                Client2
-            </div>
-            <div>
-                <Client/>
-            </div>
-        </div>
-    </StyledApp>
-  );
+        </StyledApp>
+    );
 }
 
 export default App;

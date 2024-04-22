@@ -1,15 +1,15 @@
-import { makeAutoObservable,runInAction } from 'mobx';
+import {makeAutoObservable, runInAction} from 'mobx';
+import appStore from "./app_store";
+import axios from "axios";
 
 export default class Store {
-
     socket = null;
 
-    wsPath = 'ws://localhost:8080/ws/chat';
+    userName = "";
+    userPassword = "";
+    isLoggedIn = false;
+    token = "";
 
-    userId = 0;
-    userName = '';
-    debateRoomId = 0;
-    isAgree = true;
     curStep = 0;
     stepEndTime = 0;
 
@@ -19,7 +19,6 @@ export default class Store {
 
     errorMessage = null;
 
-
     constructor() {
         makeAutoObservable(this);
     }
@@ -28,28 +27,80 @@ export default class Store {
         this.wsPath = wsPath;
     }
 
-    setUserId(userId) {
-        this.userId = userId;
+    setDebateRoomId(debateRoomId) {
+        this.debateRoomId = debateRoomId;
     }
 
     setUserName(userName) {
         this.userName = userName;
     }
 
-    setDebateRoomId(debateRoomId) {
-        this.debateRoomId = debateRoomId;
+    setUserPassword(userPassword) {
+        this.userPassword = userPassword;
     }
 
-    setIsAgree(isAgree) {
-        this.isAgree = isAgree;
+    login() {
+        runInAction(() => {
+            this.errorMessage = null;
+        });
+
+        // use axios
+        axios.post('http://localhost:8080/auth/v1/login', {
+            userName: this.userName,
+            password: this.userPassword,
+        })
+            .then(response => {
+                console.log('Success:', response);
+                runInAction(() => {
+                    this.token = response.data.token;
+                    this.isLoggedIn = true;
+                    this.errorMessage = null;
+                });
+                this.connect();
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                runInAction(() => {
+                    this.isLoggedIn = false;
+                    this.errorMessage = "로그인 실패"
+                });
+
+        })
+
+        // fetch('http://localhost:8080/auth/v1/login', {
+        //     method: 'POST',
+        //     headers: {
+        //         'Content-Type': 'application/json',
+        //         'Access-Control-Allow-Origin': '*',
+        //     },
+        //     body: JSON.stringify({
+        //         userName: this.userName,
+        //         password: this.userPassword,
+        //     }),
+        // })
+        //     .then(response => response.json())
+        //     .then(data => {
+        //         console.log('Success:', data);
+        //         runInAction(() => {
+        //             this.token = data.token;
+        //             this.isLoggedIn = true;
+        //             this.errorMessage = null;
+        //         });
+        //         this.connect();
+        //     })
+        //     .catch((error) => {
+        //         console.error('Error:', error);
+        //         runInAction(() => {
+        //             this.isLoggedIn = false;
+        //             this.errorMessage = "로그인 실패"
+        //         });
+        //     });
     }
 
-    setCurStep(curStep) {
-        this.curStep = curStep;
-    }
-
-    setStepEndTime(stepEndTime) {
-        this.stepEndTime = stepEndTime;
+    logout() {
+        this.isLoggedIn = false;
+        this.token = "";
+        this.exit();
     }
 
     setMessage(message) {
@@ -58,18 +109,27 @@ export default class Store {
 
 
     connect() {
-        runInAction(()=>{
+        if (!this.isLoggedIn) {
+            runInAction(() => {
+                this.errorMessage = "로그인이 필요합니다";
+                this.socket?.close();
+                this.socket = null;
+            });
+            return;
+        }
+
+        runInAction(() => {
             this.errorMessage = null;
         });
         try {
-            this.socket = new WebSocket(this.wsPath);
+            this.socket = new WebSocket(appStore.wsPath);
 
             // catch connection fail
             this.socket.onerror = (error) => {
                 console.error('Connection failed');
-                runInAction(()=>{
+                runInAction(() => {
                     this.socket = null;
-                    this.errorMessage = `Connection failed : ${this.wsPath}`;
+                    this.errorMessage = `Connection failed : ${appStore.wsPath}`;
                 });
             }
 
@@ -78,27 +138,25 @@ export default class Store {
 
                 this.socket.send(JSON.stringify({
                     type: "ENTER",
-                    debateRoomId: this.debateRoomId,
-                    userId: this.userId,
-                    userName: this.userName,
-                    isAgree: this.isAgree,
+                    debateRoomId: appStore.debateRoomId,
                     message: "",
+                    token: this.token
                 }));
             }
 
             this.socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 console.log('Message received:', data);
-                runInAction(()=>{
-                    if(data.type === "StepChange") {
-                        if(event.step === 7) {
+                runInAction(() => {
+                    if (data.type === "StepChange") {
+                        if (event.step === 7) {
                             this.state = "finished";
-                        }else {
+                        } else {
                             this.state = "debating";
                         }
                         this.curStep = data.step;
                         this.stepEndTime = new Date(data.endTime);
-                    }else{
+                    } else {
                         this.messages = [
                             ...this.messages,
                             data
@@ -110,13 +168,13 @@ export default class Store {
 
             this.socket.onclose = () => {
                 console.log('Connection closed');
-                runInAction(()=>{
+                runInAction(() => {
                     this.socket = null;
                     this.errorMessage = 'Connection closed';
                 });
             }
         } catch (e) {
-            runInAction(()=>{
+            runInAction(() => {
                 this.errorMessage = e.message;
             });
         }
@@ -126,22 +184,12 @@ export default class Store {
         this.socket?.send(JSON.stringify({
             type: "TALK",
             debateRoomId: this.debateRoomId,
-            userId: this.userId,
-            userName: this.userName,
-            isAgree: this.isAgree,
-            message: this.message
+            message: this.message,
+            token: this.token
         }));
     }
 
     exit() {
-        this.socket?.send(JSON.stringify({
-            type: "QUIT",
-            debateRoomId: this.debateRoomId,
-            userId: this.userId,
-            userName: this.userName,
-            isAgree: this.isAgree,
-            message: ""
-        }));
         this.socket?.close();
         this.socket = null;
     }

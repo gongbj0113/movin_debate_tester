@@ -2,74 +2,68 @@ import {observer} from "mobx-react-lite";
 import {useEffect, useState} from "react";
 import Store from "./store";
 import styled from "styled-components";
+import appStore from "./app_store";
 
 const StyledControlPannel = styled.div`
-  width: 100%;
-  display: flex;
-  flex-direction: row;
-    align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-    box-sizing: border-box;
-  
-  & .item {
+    width: 100%;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    & p {
-    margin: 0;
-    font-size: 12px;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    box-sizing: border-box;
+
+    & .item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        & p {
+            margin: 0;
+            font-size: 12px;
+        }
+
+        & input {
+            height: 28px;
+            margin: 0;
+        }
     }
-    & input {
-        height: 28px;
-        margin: 0;
-    }
-  }
+
     button {
         font-size: 14px;
         padding: 8px 16px;
     }
 `;
 
-const ControlPannel = observer(({store})=> {
+const ControlPannel = observer(({store}) => {
     return <StyledControlPannel>
-        <div className="item">
-            <p>ws path</p>
-            <input value={store.wsPath} onChange={(e) => store.setWsPath(e.target.value)}/>
-        </div>
-        <div className="item">
-            <p>userId</p>
-            <input value={store.userId} type="number"
-                   onChange={(e) => store.setUserId(isNaN(+e.target.value) ? 0 : +e.target.value)}/>
-        </div>
-        <div className="item">
-            <p>UserName</p>
-            <input value={store.userName} onChange={(e) => store.setUserName(e.target.value)}/>
-        </div>
-        <div className="item">
-            <p>debateRoomId</p>
-            <input value={store.debateRoomId} type="number"
-                   onChange={(e) => store.setDebateRoomId(isNaN(+e.target.value) ? 0 : +e.target.value)}/>
-        </div>
-        <div className="item">
-            <p>동의인가?</p>
-            <input value={store.isAgree} type="checkbox"
-                   onChange={(e) => store.setIsAgree(!!e.target.value)}/>
-        </div>
-        <button
-            onClick={() => {
-                store.connect();
-            }}
-        >
-            Connect
-        </button>
         {
-            store.socket && <button
+            !store.isLoggedIn && <>
+                <div className="item">
+                    <p>name</p>
+                    <input value={store.userName} onChange={(e) => store.setUserName(e.target.value)}/>
+                </div>
+                <div className="item">
+                    <p>password</p>
+                    <input value={store.userPassword}
+                           type="password"
+                           onChange={(e) => store.setUserPassword(e.target.value)}/>
+                </div>
+                <button
+                    onClick={() => {
+                        store.login();
+                    }}
+                >
+                    로그인
+                </button>
+            </>
+        }
+        {store.isLoggedIn && <button
                 onClick={() => {
-                    store.exit();
+                    store.logout();
                 }}
             >
-                종료
+                로그아웃
             </button>
         }
     </StyledControlPannel>
@@ -82,9 +76,9 @@ const StyledMessageField = styled.div`
     flex-direction: row;
     align-items: stretch;
     justify-content: center;
-    gap:8px;
+    gap: 8px;
     position: relative;
-    
+
 
     & input {
         flex: 1;
@@ -101,10 +95,11 @@ const MessageField = observer(({store}) => {
                 justifyContent: "center",
                 alignItems: "center",
             }}
-        >채팅보내기</div>
-        <input value={store.message} onChange={(e)=>store.setMessage(e.target.value)}/>
+        >채팅보내기
+        </div>
+        <input value={store.message} onChange={(e) => store.setMessage(e.target.value)}/>
         <button
-            onClick={()=>{
+            onClick={() => {
                 store.sendMessage();
                 store.setMessage("");
             }}
@@ -119,28 +114,28 @@ const StyledChatItem = styled.div`
     display: flex;
     flex-direction: row;
     font-size: 14px;
-    
+
     justify-content: ${props => {
-    if(props.type === "agree")
-        return "flex-end";
-    else if(props.type === "disagree")
-        return "flex-start";
-    else
-        return "center";
-}};
-    
+        if (props.type === "agree")
+            return "flex-end";
+        else if (props.type === "disagree")
+            return "flex-start";
+        else
+            return "center";
+    }};
+
     padding: 8px;
 `;
 
-const ChatHistory  = observer(({store})=> {
+const ChatHistory = observer(({store}) => {
     const list = [...store.messages].reverse();
 
     return <>
         {
             list.map((item, index) => {
                 return <StyledChatItem key={index} type={
-                    (()=>{
-                        if(item.type === "TALK")
+                    (() => {
+                        if (item.type === "TALK")
                             return item.isAgree ? "agree" : "disagree";
                         return "system";
                     })()
@@ -151,7 +146,7 @@ const ChatHistory  = observer(({store})=> {
                 </StyledChatItem>
             })
         }
-        </>
+    </>
 
 });
 
@@ -162,16 +157,16 @@ const StyledClient = styled.div`
     flex-direction: column;
     gap: 36px;
     box-sizing: border-box;
-    
+
     & .content {
-        flex:1;
+        flex: 1;
         flex-shrink: 0;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
         justify-content: end;
         box-sizing: border-box;
-  }
+    }
 `;
 
 
@@ -180,7 +175,7 @@ function TimeLeftTimer({endTime}) {
 
 
     useEffect(() => {
-        const timer = setInterval(()=>{
+        const timer = setInterval(() => {
             setTimeLeft(endTime - new Date());
         }, 100);
 
@@ -190,13 +185,13 @@ function TimeLeftTimer({endTime}) {
     }, []);
 
     // MM:SS:MS
-    if(timeLeft <= 0)
+    if (timeLeft <= 0)
         return <div>00:00:00</div>
 
     return <div>
-        {Math.floor(timeLeft/1000/60).toString().padStart(2, "0")}:
-        {Math.floor(timeLeft/1000%60).toString().padStart(2, "0")}:
-        {Math.floor(timeLeft%1000).toString().padStart(3, "0")}
+        {Math.floor(timeLeft / 1000 / 60).toString().padStart(2, "0")}:
+        {Math.floor(timeLeft / 1000 % 60).toString().padStart(2, "0")}:
+        {Math.floor(timeLeft % 1000).toString().padStart(3, "0")}
     </div>
 }
 
@@ -204,12 +199,13 @@ const StyledDebateState = styled.div`
     width: 100%;
     display: flex;
     flex-direction: row;
-    align-items:center;
+    align-items: center;
     justify-content: center;
     gap: 8px;
     font-size: 16px;
     font-weight: 600;
 `;
+
 function DebateState({store}) {
     const stepName = [
         '토론 시작 전', '긍정 입론', '부정 질의 및 긍정 답변', '부정 입론', '긍정 질의 및 부정 답변', '긍정 반박', '부정 반박', '토론 종료'
@@ -235,14 +231,19 @@ const StyledError = styled.div`
 `
 
 function Client() {
-    const store = useState(() => new Store())[0];
+    const [store, setStore] = useState(() => new Store());
 
+    useEffect(() => {
+        setStore(new Store());
+    }, [
+        setStore, appStore.wsPath, appStore.debateRoomId
+    ]);
 
     return (
         <StyledClient>
             <ControlPannel store={store}/>
             {
-                store.errorMessage &&  <StyledError>
+                store.errorMessage && <StyledError>
                     {store.errorMessage}
                 </StyledError>
             }
