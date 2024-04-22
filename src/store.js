@@ -76,30 +76,43 @@ export default class Store {
             this.socket.onopen = () => {
                 console.log('Connected to server');
 
-                this.socket.send({
+                this.socket.send(JSON.stringify({
                     type: "ENTER",
                     debateRoomId: this.debateRoomId,
                     userId: this.userId,
                     userName: this.userName,
                     isAgree: this.isAgree,
                     message: "",
-                });
+                }));
             }
 
             this.socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('Message received:', data);
                 runInAction(()=>{
-                    if(event.type === "StepChange") {
+                    if(data.type === "StepChange") {
                         if(event.step === 7) {
                             this.state = "finished";
                         }else {
                             this.state = "debating";
                         }
-                        this.curStep = event.step;
-                        this.stepEndTime = new Date(event.endTime);
+                        this.curStep = data.step;
+                        this.stepEndTime = new Date(data.endTime);
                     }else{
-                        this.messages.push(event);
+                        this.messages = [
+                            ...this.messages,
+                            data
+                        ]
                     }
 
+                });
+            }
+
+            this.socket.onclose = () => {
+                console.log('Connection closed');
+                runInAction(()=>{
+                    this.socket = null;
+                    this.errorMessage = 'Connection closed';
                 });
             }
         } catch (e) {
@@ -109,26 +122,26 @@ export default class Store {
         }
     }
 
-    sendMessage(message) {
-        this.socket?.send({
+    sendMessage() {
+        this.socket?.send(JSON.stringify({
             type: "TALK",
             debateRoomId: this.debateRoomId,
             userId: this.userId,
             userName: this.userName,
             isAgree: this.isAgree,
-            message: message
-        });
+            message: this.message
+        }));
     }
 
     exit() {
-        this.socket?.send({
-            type: "EXIT",
+        this.socket?.send(JSON.stringify({
+            type: "QUIT",
             debateRoomId: this.debateRoomId,
             userId: this.userId,
             userName: this.userName,
             isAgree: this.isAgree,
             message: ""
-        });
+        }));
         this.socket?.close();
         this.socket = null;
     }

@@ -118,6 +118,7 @@ const StyledChatItem = styled.div`
     width: 100%;
     display: flex;
     flex-direction: row;
+    font-size: 14px;
     
     justify-content: ${props => {
     if(props.type === "agree")
@@ -134,7 +135,7 @@ const StyledChatItem = styled.div`
 const ChatHistory  = observer(({store})=> {
     const list = [...store.messages].reverse();
 
-    return <div>
+    return <>
         {
             list.map((item, index) => {
                 return <StyledChatItem key={index} type={
@@ -150,7 +151,8 @@ const ChatHistory  = observer(({store})=> {
                 </StyledChatItem>
             })
         }
-    </div>
+        </>
+
 });
 
 const StyledClient = styled.div`
