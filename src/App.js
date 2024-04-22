@@ -1,170 +1,124 @@
-import logo from './logo.svg';
-import './App.css';
-import {observer} from "mobx-react-lite";
-import {useState} from "react";
-import Store from "./store";
+import {useEffect, useState} from "react";
 import styled from "styled-components";
-
-const StyledControlPannel = styled.div`
-  width: 100%;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 8px;
-  
-  & .item {
-    font-size: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-`;
-
-const ControlPannel = observer(({store})=> {
-  return <StyledControlPannel>
-      <div className="item">
-          <p>ws path</p>
-          <input value={store.wsPath} onChange={(e) => store.setWsPath(e.target.value)}/>
-      </div>
-      <div className="item">
-          <p>userId</p>
-          <input value={store.userId} type="number"
-                 onChange={(e) => store.setUserId(isNaN(+e.target.value) ? 0 : +e.target.value)}/>
-      </div>
-      <div className="item">
-          <p>UserName</p>
-          <input value={store.userName} onChange={(e) => store.setUserName(e.target.value)}/>
-      </div>
-      <div className="item">
-          <p>debateRoomId</p>
-          <input value={store.debateRoomId} type="number"
-                 onChange={(e) => store.setDebateRoomId(isNaN(+e.target.value) ? 0 : +e.target.value)}/>
-      </div>
-      <div className="item">
-          <p>동의인가?</p>
-          <input value={store.isAgree} type="checkbox"
-                 onChange={(e) => store.setIsAgree(!!e.target.value)}/>
-      </div>
-      <button
-          onClick={() => {
-              store.connect();
-          }}
-      >
-          Connect
-      </button>
-      {
-          store.socket && <button
-              onClick={() => {
-                  store.exit();
-              }}
-          >
-              종료
-          </button>
-      }
-  </StyledControlPannel>
-});
-
-
-const StyledMessageField = styled.div`
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap:8px;
-
-    & input {
-        flex: 1;
-        height: 52px;
-    }
-
-`;
-
-const MessageField = observer(({store}) => {
-    return <StyledMessageField>
-    <div>채팅보내기</div>
-    <input value={store.message} onChange={(e)=>store.setMessage(e.target.value)}/>
-    <button
-        onClick={()=>{
-          store.sendMessage();
-          store.setMessage("");
-        }}
-        >
-        Send
-    </button>
-  </StyledMessageField>
-});
-
-const StyledChatItem = styled.div`
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    
-    justify-content: ${props => {
-        if(props.type === "agree")
-            return "flex-end";
-        else if(props.type === "disagree")
-            return "flex-start";
-        else
-            return "center";
-    }};
-    
-    padding: 8px;
-`;
-
-const ChatHistory  = observer(({store})=> {
-    const list = [...store.messages].reverse();
-
-    return <div>
-        {
-            list.map((item, index) => {
-                return <StyledChatItem key={index} type={
-                    (()=>{
-                        if(item.type === "TALK")
-                            return item.isAgree ? "agree" : "disagree";
-                        return "system";
-                    })()
-                }>
-                    {item.type === "TALK" && <div>{item.userId === -1 ? "사회자" : item.userName} : {item.message}</div>}
-                    {item.type === "ENTER" && <div>{item.userName}님이 입장하셨습니다.</div>}
-                    {item.type === "EXIT" && <div>{item.userName}님이 퇴장하셨습니다.</div>}
-                </StyledChatItem>
-            })
-        }
-    </div>
-});
+import Client from "./Client";
 
 const StyledApp = styled.div`
     width: 100vw;
     height: 100vh;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    padding: 36px;
+    gap: 18px;
+    box-sizing: border-box;
     
-    & .content {
+    & .client {
         flex:1;
         flex-shrink: 0;
-        overflow-y: auto;
+        height: 100%;
+        position: relative;
         display: flex;
         flex-direction: column;
-        justify-content: end;
+        gap: 36px;
+        min-height: 0;
         
-       
+        & > div:first-child {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        & > div:last-child {
+           flex:1;
+            display: flex;
+            flex-direction: column;
+        }
   }
+    
+    & .divider {
+        width: 1px;
+        background-color: #000000;
+        height: 100%;
+        margin: 0 36px;
+    }
 `;
 
 
+function TimeLeftTimer({endTime}) {
+    const [timeLeft, setTimeLeft] = useState(endTime - new Date());
+
+
+    useEffect(() => {
+        const timer = setInterval(()=>{
+            setTimeLeft(endTime - new Date());
+        }, 100);
+
+        return () => {
+            clearInterval(timer);
+        }
+    }, []);
+
+    // MM:SS:MS
+    if(timeLeft <= 0)
+        return <div>00:00:00</div>
+
+    return <div>
+        {Math.floor(timeLeft/1000/60).toString().padStart(2, "0")}:
+        {Math.floor(timeLeft/1000%60).toString().padStart(2, "0")}:
+        {Math.floor(timeLeft%1000).toString().padStart(3, "0")}
+    </div>
+}
+
+const StyledDebateState = styled.div`
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items:center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+`;
+function DebateState({store}) {
+    const stepName = [
+        '토론 시작 전', '긍정 입론', '부정 질의 및 긍정 답변', '부정 입론', '긍정 질의 및 부정 답변', '긍정 반박', '부정 반박', '토론 종료'
+    ]
+    return <StyledDebateState>
+        {
+            store.state === "waiting" && <div>대기중 (모든 참가자가 참여완료하면 자동으로 시작됩니다)</div>
+        }
+        {
+            store.state === "debating" &&
+            <>
+                {stepName[store.step]}
+                <TimeLeftTimer endTime={store.stepEndTime}/>
+            </>
+        }
+    </StyledDebateState>
+}
+
 function App() {
-  const store = useState(() => new Store())[0];
 
 
   return (
       <StyledApp>
-        <ControlPannel store={store}/>
-        <div className="content">
-            <ChatHistory store={store}/>
+        <div className="client">
+            <div>
+                Client 1
+            </div>
+            <div>
+                <Client/>
+            </div>
         </div>
-        <MessageField store={store}/>
+          <div className="divider"/>
+        <div className="client">
+            <div>
+                Client2
+            </div>
+            <div>
+                <Client/>
+            </div>
+        </div>
     </StyledApp>
   );
 }
 
-export default observer(App);
+export default App;

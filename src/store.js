@@ -17,6 +17,9 @@ export default class Store {
     messages = [];
     message = "";
 
+    errorMessage = null;
+
+
     constructor() {
         makeAutoObservable(this);
     }
@@ -55,46 +58,55 @@ export default class Store {
 
 
     connect() {
-        this.socket = new WebSocket(this.wsPath);
+        runInAction(()=>{
+            this.errorMessage = null;
+        });
+        try {
+            this.socket = new WebSocket(this.wsPath);
 
-        // catch connection fail
-        this.socket.onerror = (error) => {
-            console.error('Connection failed');
-            runInAction(()=>{
-                this.websocket = null;
-            });
-        }
+            // catch connection fail
+            this.socket.onerror = (error) => {
+                console.error('Connection failed');
+                runInAction(()=>{
+                    this.socket = null;
+                    this.errorMessage = `Connection failed : ${this.wsPath}`;
+                });
+            }
 
-        this.socket.onopen = () => {
-            console.log('Connected to server');
+            this.socket.onopen = () => {
+                console.log('Connected to server');
 
-            this.socket.send({
-                type: "ENTER",
-                debateRoomId: this.debateRoomId,
-                userId: this.userId,
-                userName: this.userName,
-                isAgree: this.isAgree,
-                message: "",
-            });
-        }
+                this.socket.send({
+                    type: "ENTER",
+                    debateRoomId: this.debateRoomId,
+                    userId: this.userId,
+                    userName: this.userName,
+                    isAgree: this.isAgree,
+                    message: "",
+                });
+            }
 
-        this.socket.onmessage = (event) => {
-            runInAction(()=>{
-                if(event.type === "StepChange") {
-                    if(event.step === 7) {
-                        this.state = "finished";
-                    }else {
-                        this.state = "debating";
+            this.socket.onmessage = (event) => {
+                runInAction(()=>{
+                    if(event.type === "StepChange") {
+                        if(event.step === 7) {
+                            this.state = "finished";
+                        }else {
+                            this.state = "debating";
+                        }
+                        this.curStep = event.step;
+                        this.stepEndTime = new Date(event.endTime);
+                    }else{
+                        this.messages.push(event);
                     }
-                    this.curStep = event.step;
-                    this.stepEndTime = new Date(event.endTime);
-                }else{
-                    this.messages.push(event);
-                }
 
+                });
+            }
+        } catch (e) {
+            runInAction(()=>{
+                this.errorMessage = e.message;
             });
         }
-
     }
 
     sendMessage(message) {
