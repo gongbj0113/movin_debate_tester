@@ -65,36 +65,7 @@ export default class Store {
                     this.errorMessage = "로그인 실패"
                 });
 
-        })
-
-        // fetch('http://localhost:8080/auth/v1/login', {
-        //     method: 'POST',
-        //     headers: {
-        //         'Content-Type': 'application/json',
-        //         'Access-Control-Allow-Origin': '*',
-        //     },
-        //     body: JSON.stringify({
-        //         userName: this.userName,
-        //         password: this.userPassword,
-        //     }),
-        // })
-        //     .then(response => response.json())
-        //     .then(data => {
-        //         console.log('Success:', data);
-        //         runInAction(() => {
-        //             this.token = data.token;
-        //             this.isLoggedIn = true;
-        //             this.errorMessage = null;
-        //         });
-        //         this.connect();
-        //     })
-        //     .catch((error) => {
-        //         console.error('Error:', error);
-        //         runInAction(() => {
-        //             this.isLoggedIn = false;
-        //             this.errorMessage = "로그인 실패"
-        //         });
-        //     });
+        });
     }
 
     logout() {
@@ -148,14 +119,14 @@ export default class Store {
                 const data = JSON.parse(event.data);
                 console.log('Message received:', data);
                 runInAction(() => {
-                    if (data.type === "StepChange") {
+                    if (data.messageType === "StepChange") {
                         if (event.step === 7) {
                             this.state = "finished";
                         } else {
                             this.state = "debating";
                         }
                         this.curStep = data.step;
-                        this.stepEndTime = new Date(data.endTime);
+                        this.stepEndTime = new Date(data.stepEndTime);
                     } else {
                         this.messages = [
                             ...this.messages,

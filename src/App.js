@@ -17,12 +17,15 @@ const StyledApp = styled.div`
         display: flex;
         flex-direction: row;
         gap: 18px;
+        min-height: 0;
+        position: relative;
+        
     }
 
     & .client {
         flex: 1;
-        flex-shrink: 0;
         height: 100%;
+        flex-shrink: 0;
         position: relative;
         display: flex;
         flex-direction: column;
@@ -38,6 +41,8 @@ const StyledApp = styled.div`
             flex: 1;
             display: flex;
             flex-direction: column;
+            min-height: 0;
+            position: relative;
         }
     }
 

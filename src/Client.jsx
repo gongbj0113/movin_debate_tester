@@ -1,5 +1,5 @@
 import {observer} from "mobx-react-lite";
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import Store from "./store";
 import styled from "styled-components";
 import appStore from "./app_store";
@@ -128,21 +128,23 @@ const StyledChatItem = styled.div`
 `;
 
 const ChatHistory = observer(({store}) => {
-    const list = [...store.messages].reverse();
+    const list = [...store.messages];
 
     return <>
         {
             list.map((item, index) => {
                 return <StyledChatItem key={index} type={
                     (() => {
-                        if (item.type === "TALK")
-                            return item.isAgree ? "agree" : "disagree";
+                        if (item.messageType === "TALK" && item.senderUserId !== -1)
+                            return item.senderAgree ? "agree" : "disagree";
                         return "system";
                     })()
                 }>
-                    {item.type === "TALK" && <div>{item.userId === -1 ? "사회자" : item.userName} : {item.message}</div>}
-                    {item.type === "ENTER" && <div>{item.userName}님이 입장하셨습니다.</div>}
-                    {item.type === "EXIT" && <div>{item.userName}님이 퇴장하셨습니다.</div>}
+                    {item.messageType === "TALK" &&
+                        <div>{item.senderUserId === -1 ? "사회자" : item.senderUserName} : {item.message}</div>}
+                    {item.messageType === "ENTER" && <div>{item.senderUserName}님이 입장하셨습니다.</div>}
+                    {item.messageType === "EXIT" && <div>{item.senderUserName}님이 퇴장하셨습니다.</div>}
+
                 </StyledChatItem>
             })
         }
@@ -157,6 +159,7 @@ const StyledClient = styled.div`
     flex-direction: column;
     gap: 36px;
     box-sizing: border-box;
+    min-height: 0;
 
     & .content {
         flex: 1;
@@ -166,12 +169,13 @@ const StyledClient = styled.div`
         flex-direction: column;
         justify-content: end;
         box-sizing: border-box;
+        min-height: 0;
     }
 `;
 
 
 function TimeLeftTimer({endTime}) {
-    const [timeLeft, setTimeLeft] = useState(endTime - new Date());
+    const [timeLeft, setTimeLeft] = useState(0);
 
 
     useEffect(() => {
@@ -182,16 +186,22 @@ function TimeLeftTimer({endTime}) {
         return () => {
             clearInterval(timer);
         }
-    }, []);
+    }, [endTime, setTimeLeft]);
+
 
     // MM:SS:MS
     if (timeLeft <= 0)
         return <div>00:00:00</div>
 
+
     return <div>
-        {Math.floor(timeLeft / 1000 / 60).toString().padStart(2, "0")}:
-        {Math.floor(timeLeft / 1000 % 60).toString().padStart(2, "0")}:
-        {Math.floor(timeLeft % 1000).toString().padStart(3, "0")}
+        {Math.floor(timeLeft / 60000).toString().padStart(2, "0")}:
+        {Math.floor(
+            (timeLeft % 60000) / 1000
+        ).toString().padStart(2, "0")}:
+        {Math.floor(
+            (timeLeft % 1000) / 100
+        ).toString().padStart(1, "0")}
     </div>
 }
 
@@ -206,7 +216,7 @@ const StyledDebateState = styled.div`
     font-weight: 600;
 `;
 
-function DebateState({store}) {
+const DebateState = observer(({store})=> {
     const stepName = [
         '토론 시작 전', '긍정 입론', '부정 질의 및 긍정 답변', '부정 입론', '긍정 질의 및 부정 답변', '긍정 반박', '부정 반박', '토론 종료'
     ]
@@ -217,12 +227,15 @@ function DebateState({store}) {
         {
             store.state === "debating" &&
             <>
-                {stepName[store.step]}
+                {stepName[store.curStep]}
                 <TimeLeftTimer endTime={store.stepEndTime}/>
             </>
         }
+        {
+            store.state === "finished" && <div>토론이 종료되었습니다.</div>
+        }
     </StyledDebateState>
-}
+});
 
 const StyledError = styled.div`
     text-align: center;
@@ -232,12 +245,18 @@ const StyledError = styled.div`
 
 function Client() {
     const [store, setStore] = useState(() => new Store());
+    const ScrollRef = useRef(null);
 
     useEffect(() => {
         setStore(new Store());
     }, [
         setStore, appStore.wsPath, appStore.debateRoomId
     ]);
+
+    useEffect(() => {
+        // Scroll to bottom
+        ScrollRef.current.scrollTop = ScrollRef.current.scrollHeight;
+    }, [store.messages, ScrollRef]);
 
     return (
         <StyledClient>
@@ -248,7 +267,7 @@ function Client() {
                 </StyledError>
             }
             <DebateState store={store}/>
-            <div className="content">
+            <div className="content" ref={ScrollRef}>
                 <ChatHistory store={store}/>
             </div>
             <MessageField store={store}/>
